@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -94,7 +95,22 @@ func downloadWithLogging(urlStr string, background bool) {
 }
 
 func main() {
-	urlStr := "https://example.com/file.txt"
-	background := true // or false, depending on whether you want background download
-	downloadWithLogging(urlStr, background)
+	// Define the -B flag
+	background := flag.Bool("B", false, "Run download in the background")
+
+	// Parse the command-line flags
+	flag.Parse()
+
+	// Ensure a URL is provided
+	if flag.NArg() < 1 {
+		fmt.Println("Usage: [options] <url>")
+		flag.PrintDefaults()
+		os.Exit(1)
+	}
+
+	// The first non-flag argument is the URL
+	urlStr := flag.Arg(0)
+
+	// Call the download function with the parsed flag
+	downloadWithLogging(urlStr, *background)
 }
