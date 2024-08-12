@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -55,22 +54,7 @@ func downloadFile(urlStr, fileName string) error {
 	return nil
 }
 
-func main() {
-	// Define the -B flag
-	background := flag.Bool("B", false, "Download in background")
-
-	// Parse the flags
-	flag.Parse()
-
-	if flag.NArg() < 1 {
-		fmt.Println("Usage: go run . [-B] <URL>")
-		return
-	}
-
-	// Get the URL from the command line arguments
-	urlStr := flag.Arg(0)
-
-	// Parse the URL to get the file name
+func downloadWithLogging(urlStr string, background bool) {
 	parsedURL, err := url.Parse(urlStr)
 	if err != nil {
 		fmt.Printf("Error parsing URL: %v\n", err)
@@ -80,7 +64,7 @@ func main() {
 	// Extract the file name from the URL path
 	fileName := path.Base(parsedURL.Path)
 
-	if *background {
+	if background {
 		fmt.Println("Output will be written to 'wget-log'.")
 		go func() {
 			logFile, err := os.Create("wget-log")
@@ -107,4 +91,10 @@ func main() {
 			fmt.Println(err)
 		}
 	}
+}
+
+func main() {
+	urlStr := "https://example.com/file.txt"
+	background := true // or false, depending on whether you want background download
+	downloadWithLogging(urlStr, background)
 }
