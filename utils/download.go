@@ -1,17 +1,15 @@
-package main
+package utils
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
-	"path"
+	"strings"
 	"time"
 )
 
-func downloadFile(urlStr, fileName string) error {
+func DownloadFile(urlStr, fileName string, background bool) error {
 	// Start time
 	startTime := time.Now().Format("2006-01-02 15:04:05")
 	fmt.Printf("start at %s\n", startTime)
@@ -31,7 +29,7 @@ func downloadFile(urlStr, fileName string) error {
 
 	// Get the content length
 	contentLength := resp.ContentLength
-	fmt.Printf("content size: %d [~%.2fMB]\n", contentLength, float64(contentLength)/1024/1024)
+	fmt.Printf("content size: %d [~%.2fMB]\n", contentLength, float64(contentLength)/1000/1000)
 
 	// Save file
 	out, err := os.Create(fileName)
@@ -42,12 +40,20 @@ func downloadFile(urlStr, fileName string) error {
 
 	fmt.Printf("saving file to: ./%s\n", fileName)
 
-	// Copy data from response to file
-	_, err = io.Copy(out, resp.Body)
-	if err != nil {
-		return fmt.Errorf("error: %v", err)
-	}
+	if background {
+		_, err := io.Copy(out, resp.Body)
+		if err != nil {
+			return fmt.Errorf("error: %v", err)
+		}
+	} else {
+		bar := NewProgressBar(contentLength, 50)
+		bar.StartTimer()
 
+		_, err = io.Copy(io.MultiWriter(out, bar), resp.Body)
+		if err != nil {
+			return fmt.Errorf("error: %v", err)
+		}
+	}
 	// End time
 	endTime := time.Now().Format("2006-01-02 15:04:05")
 	fmt.Printf("Downloaded [%s]\nfinished at %s\n", urlStr, endTime)
@@ -55,16 +61,7 @@ func downloadFile(urlStr, fileName string) error {
 	return nil
 }
 
-func downloadWithLogging(urlStr string, background bool) {
-	parsedURL, err := url.Parse(urlStr)
-	if err != nil {
-		fmt.Printf("Error parsing URL: %v\n", err)
-		return
-	}
-
-	// Extract the file name from the URL path
-	fileName := path.Base(parsedURL.Path)
-
+func DownloadWithLogging(urlStr string, fileName string, background bool) {
 	if background {
 		fmt.Println("Output will be written to 'wget-log'.")
 		go func() {
@@ -79,38 +76,24 @@ func downloadWithLogging(urlStr string, background bool) {
 			os.Stdout = logFile
 			os.Stderr = logFile
 
-			err = downloadFile(urlStr, fileName)
-			if err != nil {
+			err1 := DownloadFile(urlStr, fileName, background)
+			if err1 != nil {
 				fmt.Fprintln(logFile, "Error:", err)
 			}
 		}()
 		// Prevent the main function from exiting immediately
-		time.Sleep(1 * time.Second)
+		time.Sleep(3 * time.Second)
 	} else {
-		err := downloadFile(urlStr, fileName)
+		err := DownloadFile(urlStr, fileName, background)
 		if err != nil {
 			fmt.Println(err)
 		}
 	}
 }
 
-func main() {
-	// Define the -B flag
-	background := flag.Bool("B", false, "Run download in the background")
+func GetFileName(url string) string {
+	s := strings.Split(url, "/")
 
-	// Parse the command-line flags
-	flag.Parse()
-
-	// Ensure a URL is provided
-	if flag.NArg() < 1 {
-		fmt.Println("Usage: [options] <url>")
-		flag.PrintDefaults()
-		os.Exit(1)
-	}
-
-	// The first non-flag argument is the URL
-	urlStr := flag.Arg(0)
-
-	// Call the download function with the parsed flag
-	downloadWithLogging(urlStr, *background)
+	// Extract the file name from the URL path
+	return s[len(s)-1]
 }
