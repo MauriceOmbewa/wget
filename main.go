@@ -5,7 +5,7 @@ import (
 )
 
 func main() {
-	output, url, background := utils.CheckFlags()
+output, url,path, background := utils.CheckFlags()
 
 	filename := ""
 	if output == "" {
@@ -13,6 +13,8 @@ func main() {
 	} else {
 		filename = output
 	}
-
+if path !=""{
+	filename = path + filename
+}
 	utils.DownloadWithLogging(url, filename, background)
 }

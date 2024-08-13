@@ -3,10 +3,13 @@ package utils
 import (
 	"flag"
 	"fmt"
+	"os"
+	"strings"
 )
 
-func CheckFlags() (output, url string, tolog bool) {
+func CheckFlags() (output, url string, filepath string, tolog bool) {
 	outputFile := flag.String("O", "", "Specify the output filename")
+	path := flag.String("P", "", "Specify the file path")
 	log := flag.Bool("B", false, "Run download in the background")
 	flag.Parse()
 
@@ -16,5 +19,13 @@ func CheckFlags() (output, url string, tolog bool) {
 		return
 	}
 	url = flag.Arg(0)
-	return *outputFile, url, *log
+	if strings.Contains(*path, "~") {
+		home := os.Getenv("HOME")
+		*path = strings.Replace(*path, "~", home, 1)
+		*path = strings.TrimSpace(*path)
+		if !strings.HasPrefix(*path, "/") {
+			*path = "/" + *path
+		}
+	}
+	return *outputFile, url, *path, *log
 }
