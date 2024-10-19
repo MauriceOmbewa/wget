@@ -9,29 +9,24 @@ import (
 	"time"
 )
 
-func DownloadFile(urlStr, fileName string, background bool) error {
-	// Start time
+func DownloadFile(urlStr, fileName string, background bool, rateLimit int64) error {
 	startTime := time.Now().Format("2006-01-02 15:04:05")
 	fmt.Printf("start at %s\n", startTime)
 
-	// Send HTTP GET request
 	resp, err := http.Get(urlStr)
 	if err != nil {
 		return fmt.Errorf("error: %v", err)
 	}
 	defer resp.Body.Close()
 
-	// Check for HTTP status
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("error: got status %s", resp.Status)
 	}
 	fmt.Printf("sending request, awaiting response... status %s\n", resp.Status)
 
-	// Get the content length
 	contentLength := resp.ContentLength
 	fmt.Printf("content size: %d [~%.2fMB]\n", contentLength, float64(contentLength)/1000/1000)
 
-	// Save file
 	out, err := os.Create(fileName)
 	if err != nil {
 		return fmt.Errorf("error: %v", err)
@@ -40,8 +35,15 @@ func DownloadFile(urlStr, fileName string, background bool) error {
 
 	fmt.Printf("saving file to: ./%s\n", fileName)
 
+	// Create rate-limited reader if rate limit is specified else download normal
+	var reader io.Reader = resp.Body
+	if rateLimit > 0 {
+		fmt.Printf("Rate limit set to: %.2f KB/s\n", float64(rateLimit)/1024)
+		reader = NewRateLimitReader(resp.Body, rateLimit)
+	}
+
 	if background {
-		_, err := io.Copy(out, resp.Body)
+		_, err := io.Copy(out, reader)
 		if err != nil {
 			return fmt.Errorf("error: %v", err)
 		}
@@ -49,19 +51,19 @@ func DownloadFile(urlStr, fileName string, background bool) error {
 		bar := NewProgressBar(contentLength, 50)
 		bar.StartTimer()
 
-		_, err = io.Copy(io.MultiWriter(out, bar), resp.Body)
+		_, err = io.Copy(io.MultiWriter(out, bar), reader)
 		if err != nil {
 			return fmt.Errorf("error: %v", err)
 		}
 	}
-	// End time
+
 	endTime := time.Now().Format("2006-01-02 15:04:05")
 	fmt.Printf("Downloaded [%s]\nfinished at %s\n", urlStr, endTime)
 
 	return nil
 }
 
-func DownloadWithLogging(urlStr string, fileName string, background bool) {
+func DownloadWithLogging(urlStr string, fileName string, background bool, rateLimit int64) {
 	if background {
 		fmt.Println("Output will be written to 'wget-log'.")
 		go func() {
@@ -72,25 +74,22 @@ func DownloadWithLogging(urlStr string, fileName string, background bool) {
 			}
 			defer logFile.Close()
 
-			// Redirect output to the log file
 			os.Stdout = logFile
 			os.Stderr = logFile
 
-			err1 := DownloadFile(urlStr, fileName, background)
+			err1 := DownloadFile(urlStr, fileName, background, rateLimit)
 			if err1 != nil {
 				fmt.Fprintln(logFile, "Error:", err)
 			}
 		}()
-		// Prevent the main function from exiting immediately
 		time.Sleep(3 * time.Second)
 	} else {
-		err := DownloadFile(urlStr, fileName, background)
+		err := DownloadFile(urlStr, fileName, background, rateLimit)
 		if err != nil {
 			fmt.Println(err)
 		}
 	}
 }
-
 func GetFileName(url string) string {
 	s := strings.Split(url, "/")
 

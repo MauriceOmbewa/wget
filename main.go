@@ -1,18 +1,33 @@
 package main
 
 import (
+	"log"
 	"wget/utils"
 )
 
 func main() {
-	output, url, background := utils.CheckFlags()
+	output, url, background, file, rateLimit := utils.CheckFlags()
 
-	filename := ""
-	if output == "" {
-		filename = utils.GetFileName(url)
-	} else {
-		filename = output
+	// Handle multi-file download case
+	if file != "" {
+		urls, err := utils.ReadUrlsFromFile(file)
+		if err != nil {
+			log.Fatal(err)
+		}
+		
+		// Pass rate limit to concurrent download function
+		err = utils.DownloadFilesConcurrently(urls, output, background, rateLimit)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return
 	}
 
-	utils.DownloadWithLogging(url, filename, background)
+	// Handle single file download case
+	filename := output
+	if filename == "" {
+		filename = utils.GetFileName(url)
+	}
+
+	utils.DownloadWithLogging(url, filename, background, rateLimit)
 }
