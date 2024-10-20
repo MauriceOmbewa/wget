@@ -48,7 +48,7 @@ func (pb *ProgressBar) printProgress() {
 	total:=float64(pb.Total)/1000
 	percent := float64(pb.Written) / float64(pb.Total) * 100
 	filledLength := int(percent) * pb.BarLength / 100
-	bar := strings.Repeat("#", filledLength) + strings.Repeat(" ", pb.BarLength-filledLength)
+	bar := strings.Repeat("=", filledLength) + strings.Repeat(" ", pb.BarLength-filledLength)
 	speed := pb.CalculateSpeed()/1000/1000
 	fmt.Printf("\r %.2f KiB / %.2f KiB [%s] %.2f%% | %.2f MB/s %.0fs", downloaded,total,bar, percent, speed, since.Seconds())
 	if pb.Written == pb.Total {
