@@ -1,11 +1,12 @@
 package main
 
 import (
+	"path/filepath"
 	"wget/utils"
 )
 
 func main() {
-output, url,path, background := utils.CheckFlags()
+	output, url, path, background := utils.CheckFlags()
 
 	filename := ""
 	if output == "" {
@@ -13,8 +14,11 @@ output, url,path, background := utils.CheckFlags()
 	} else {
 		filename = output
 	}
-if path !=""{
-	filename = path + filename
-}
+
+	// Combine path and filename
+	if path != "" {
+		filename = filepath.Join(path, filename) 
+	}
+
 	utils.DownloadWithLogging(url, filename, background)
 }
