@@ -1,0 +1,284 @@
+<!doctype html>
+<html>
+  <head>
+	<meta name="generator" content="Hugo 0.99.1" />
+    <meta charset="utf-8" />
+
+<link rel="alternate" type="application/rss+xml" href="https://theuselessweb.com/sites/index.xml" title="The Useless Web" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<link
+  href="https://fonts.googleapis.com/css2?family=Josefin+Slab:wght@600&family=Work+Sans&display=swap"
+  rel="stylesheet"
+/>
+
+<link href="/sites/css/styles.css" rel="stylesheet" />
+
+
+
+
+    <title>The Useless Web Sites</title>
+    <meta property="og:title" content="The Sites of The Useless Web">
+    <meta property="og:description" content="Are you a fan of The Useless Web, well here's how they all happened!">
+    <meta name="twitter:title" content="The Sites of The Useless Web">
+    <meta name="twitter:description" content="Are you a fan of The Useless Web, well here's how they all happened!">
+    <meta name="description" content="Find out all about the Useless websites on The Useless Web." />
+  </head>
+  <body>
+    <header>
+  <h1><a href="/sites">The Useless Sites of the Useless Web</a></h1>
+  <a href="/">→ Discover More Sites</a>
+</header>
+
+      <div class="wrapper">
+        
+          
+            
+          
+          
+          
+          
+
+            <article>
+  <div class="details">
+    <div class="details-wrapper">
+      <a href="/sites/checkbox-race/" class="title"><h1>Checkbox Race</h1></a>
+      <p>
+        By 
+         <a class="button" href="https://tholman.com/" target="_blank">Tim Holman</a> 
+
+        <span class="divider">→</span> Visit <a class="button" href="https://checkboxrace.com/" target="_blank">Checkbox Race</a>
+      </p>
+    </div>
+  </div>
+
+  
+
+  <div class="intro">
+    <p>Sometimes I wonder just how many checkboxes I have &ldquo;checked&rdquo; or &ldquo;unchecked&rdquo; during my life, from multiple choice quiz&rsquo;s to filling out life&rsquo;s great paperwork they&rsquo;re everywhere&hellip; if there&rsquo;s one thing thats for certain, its that after visiting this site I&rsquo;ve clicked a whole lot more!</p>
+<p>
+  </div>
+  </p>
+<div class="images has-border">
+  <img src="/sites/assets/checkbox-1.png" />
+  <img src="/sites/assets/checkbox-2.png" />
+  <img src="/sites/assets/checkbox-3.png" />
+</div>
+<p>
+  <div class="content">
+    </p>
+<p><strong>Why checkboxes, why not dropdowns or something else?</strong></p>
+<p>Something has always drawn me to the browsers native checkbox element, the blue checkbox for some reason appeals to me and really the simplicity of the action and quick response. I can&rsquo;t really explain it much more than that, I like the element and want to make things with it. I had previously explored this idea with <a href="https://checkboxolympics.com/">checkbox olympics</a> which unfortunately remains largely incomplete, but wanted to make a stand alone experience.</p>
+<p> <br>
+<strong>Would you consider a game useful?</strong></p>
+<p>When it comes down to it, I&rsquo;m not quite sure&hellip; in a way checkbox race is entertainment but because it&rsquo;s so monotonous and hard to really race through quickly I feel like we&rsquo;re more into the territory of art vs a game. If anything checkbox race is annoying and challenging rather than enjoyable, though I guess some people also enjoy those things.</p>
+<p> <br>
+<strong>What is your fastest time?</strong></p>
+<p>I have to have played this about 1000 times, mostly to test the individual pieces are all working as intended. If I cheat with tabs (I did consider putting something in here to stop this, or at least alert people tabs were used in their score) I can get under 15 seconds, otherwise well into the 45-1 minute mark. I guess it relies on a little RNG and no misclicks.</p>
+<p> <br>
+<strong>Is checkbox race open source?</strong></p>
+<p>Checkbox Race is most certainly <a href="https://github.com/tholman/checkboxrace">open sourced</a> although I guess all in all I would consider it &lsquo;complete&rsquo;, there would be room for some css accent colors, and perhaps something to make the mobile experience a little better. I don&rsquo;t think this will be the last time I mess with checkboxes in a game, thats for sure.</p>
+
+  </div>
+</article>
+
+
+          
+
+            <article>
+  <div class="details">
+    <div class="details-wrapper">
+      <a href="/sites/one-square-minesweeper/" class="title"><h1>One Square Minesweeper</h1></a>
+      <p>
+        By 
+         <a class="button" href="https://tholman.com/" target="_blank">Tim Holman</a> 
+
+        <span class="divider">→</span> Visit <a class="button" href="https://onesquareminesweeper.com/" target="_blank">One Square Minesweeper</a>
+      </p>
+    </div>
+  </div>
+
+  
+
+  <div class="intro">
+    <p>One Square Minesweeper is one of those projects that have sat in my todo list for a long long time, something that would be almost in a sense the fastest easiest game that you can win, but also lose equally easy.</p>
+<p>
+  </div>
+  </p>
+<div class="images">
+  <img src="/sites/assets/minesweeper-1.jpg" />
+  <img src="/sites/assets/minesweeper-2.jpg" />
+  <img src="/sites/assets/minesweeper-3.jpg" />
+</div>
+<p>
+  <div class="content">
+    </p>
+<p><strong>Why A Single Square?</strong></p>
+<p>Ultimately I never really took to the game minesweeper, I had won the smaller one a few times but really liked the idea of one huge square being a single conglomerate mine. Initially I had it large but in the end it almost felt more comical when I could shrink it down to a very un-threatening one square.</p>
+<p> <br>
+<strong>How did you build this?</strong></p>
+<p>Truly I had been procrastinating on this for a while, and predominantly because pulling all of the images together that would look good and be in the retro style just seemed like one of those boring tasks I never do very well at, but fortunately I stumbled upon a fully <a href="https://github.com/leyanlo/minesweeper/">open source minesweeper</a>, which had a full set of assets that I could use as well as some clear layouts&hellip; once I had that it was more a matter of stripping out the unwanted functionality.</p>
+<p> <br>
+<strong>What is the win to loss ratio?</strong></p>
+<p>Ahh, sadly (or happily) it&rsquo;s not something I&rsquo;ve been tracking, but based on a few tweets that I&rsquo;ve observed it seems pretty clear that a lot of people are straight up clicking the mine square not really remembering that in minesweeper you need a right click to flag the mine.</p>
+<p> <br>
+<strong>Is there anything else special about this project?</strong></p>
+<p>There is! The project was built and launched as part of Netlify&rsquo;s <a href="https://dusty.domains/">Dusty Domains</a> project, where for each project built and launched on an old domain money was donated to charity! Ultimately over a hundred thousand dollars was raised for a variety of individual charities.</p>
+<p> <br>
+<strong>Is there anything more to it?</strong></p>
+<p>Haha, absolutely not. One Square Minesweeper is <a href="https://github.com/tholman/one-square-minesweeper">open sourced</a> although I guess all in all I would consider it &lsquo;complete&rsquo;</p>
+
+  </div>
+</article>
+
+
+          
+
+            <article>
+  <div class="details">
+    <div class="details-wrapper">
+      <a href="/sites/doughnut-kitten/" class="title"><h1>Doughnut Kitten</h1></a>
+      <p>
+        By 
+         <a class="button" href="https://taniahennessy.com/" target="_blank">Tania Hennessy</a> 
+
+        <span class="divider">→</span> Visit <a class="button" href="http://doughnutkitten.com/" target="_blank">Doughnut Kitten</a>
+      </p>
+    </div>
+  </div>
+
+  
+
+  <div class="intro">
+    <p>Somehow in my searches I had missed this wonderful site until recently Tania reached out to me! It&rsquo;s hard to believe that such a magnificent site had gone under my radar for so long.</p>
+<p>
+  </div>
+  </p>
+<div class="images">
+  <img src="/sites/assets/doughnut-kitten-1.jpg" />
+  <img src="/sites/assets/doughnut-kitten-2.jpg" />
+  <img src="/sites/assets/doughnut-kitten-3.jpg" />
+</div>
+<p>
+  <div class="content">
+    </p>
+<p><strong>What got you into web development?</strong></p>
+<p>Back in 2015, I started experiencing these unpredictable episodes of excruciating facial pain. Sleep was impossible and late one night I came across The Useless Web. I became strangely obsessed with this quirky genre of art. When my mysterious agony was diagnosed as trigeminal neuralgia I was like “fuck it, now I’m going to work on whatever project I want to.”</p>
+<p> <br>
+<strong>What came first, the domain, the code or the pictures?</strong></p>
+<p>Emoji Kittens was the body of work that followed that diagnosis. It playfully juxtaposed classic kitten photography with emojis against minimal pastel backdrops. One of my favourite images in the collection was of a kitten sitting in the Apple doughnut emoji.</p>
+<p>The domain and the code came along after I was introduced to a developer at a roller derby game. I told him about my idea to create a delightfully distracting website featuring the kitten in the doughnut slowly filling your screen with infinite pastel rainbows. He was into it and I purchased the domain the next day.<br>
+ <br>
+<strong>More on the kitten itself! How did you get it to create these crazy poses?</strong></p>
+<p>To capture the final photos we 3D printed a doughnut shaped prop and built a set that locked it into place. It was amazing. There was even a space under the prop that hid a little pillow for maximum kitten comfort. We’d sit the kittens in the doughnut and attempt to get them to look at the camera with all kinds of toys, treats, and weird sounds.</p>
+<p> <br>
+<strong>What was the hardest part of building Doughnut Kitten?</strong></p>
+<p>Photographing kittens takes a ton of patience. During auditions the adorable models would drift off to sleep in the prop, dive into it headfirst, and photobomb each other. They really just did whatever they wanted!</p>
+<img src="/sites/assets/doughnut-kitten-outtakes.jpg" />  
+<p> <br>
+The biggest challenge was getting the kittens to look into the centre of the camera lens. Capturing a gaze that had that Mona Lisa effect, where the eyes appear to follow you as you move around the image, was rare.</p>
+<p> <br>
+<strong>What are you working on now?</strong></p>
+<p>I’m currently creating a new body of work called &ldquo;There Was No Vaccine&rdquo; that uses histology to magnify my own cervical cells. The collection will illuminate the mesmerizing cellular landscapes of the human cervix and the vivid mutations that are a consequence of HPV infection.</p>
+
+  </div>
+</article>
+
+
+          
+
+            <article>
+  <div class="details">
+    <div class="details-wrapper">
+      <a href="/sites/pug-in-a-rug/" class="title"><h1>Pug in a Rug</h1></a>
+      <p>
+        By 
+         <a class="button" href="https://tholman.com/" target="_blank">Tim Holman</a> 
+
+        <span class="divider">→</span> Visit <a class="button" href="https://puginarug.com/" target="_blank">Pug in a Rug</a>
+      </p>
+    </div>
+  </div>
+
+  
+
+  <div class="intro">
+    <p>When you&rsquo;re staring into this beautiful pug in a rug the world fades away and nothing else matters&hellip; at least, that&rsquo;s what it felt like building this beautiful time waster. A true homage to the beautiful world of pugs, as well as some of the most time-consuming sites in existence.</p>
+<p>
+  </div>
+  </p>
+<div class="images has-border">
+  <img src="/sites/assets/pug.jpg" />
+  <img src="/sites/assets/pug.jpg" />
+  <img src="/sites/assets/pug.jpg" />
+</div>
+<p>
+  <div class="content">
+    </p>
+<p><strong>First things first, is this your pug?</strong></p>
+<p>It is not! The original photo was found on Unsplash and is by <a href="https://unsplash.com/@matthewhenry">Matthew Henry</a>, he also has a large array of <a href="https://unsplash.com/photos/n5vuEc86Zg8">pugs within rugs</a> that are all insanely cute and that are generously available under the Unsplash license! It was <a href="https://unsplash.com/photos/U5rMrSI7Pn4">this</a> particular pug in a rug that lay the inspiration for this useless website!</p>
+<p> <br>
+<strong>How many levels &lsquo;of pug&rsquo; are there in pug in a rug?</strong></p>
+<p>As of writing, there are 19 different &ldquo;levels of pug&rdquo;, starting as a jr assistant, and quickly rising through the ranks you can eventually achieve hermit, lord, or even king of pug! That said, I&rsquo;m not stuck to the 19, and have considered adding more layers of complication to your rise. But yes, for now: 19 levels.<br>
+ </p>
+<p><strong>Is there any special sauce in this site? How was it made?</strong></p>
+<p>Hmmm, special sauce. There are a few little nuances that were accidental that have had some surprising effects. At the moment when you&rsquo;re sitting on the page accumulating your&hellip; I don&rsquo;t know what I&rsquo;d call them, &ldquo;honoring pug points&rdquo; you can grow levels. The thing is though if you&rsquo;ve got the tab open but unfocused in another screen the counter will still continue to increase, but the browser will do some tricky business to make sure the tab isn&rsquo;t taking up too many resources, which means the counter may miss its exact seconds counted to level you up&hellip; this results in lots of seconds without as many levels. A happy accident.<br>
+ </p>
+<p>You can watch me make the pug in a rug here:</p>
+<p>
+<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;">
+  <iframe src="https://www.youtube.com/embed/Sj1vbbRA07g" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allowfullscreen title="YouTube Video"></iframe>
+</div>
+
+ </p>
+<p>There&rsquo;s also a second video where I make the whole experience a little more interactive! If you prowl through the videos or the code, you&rsquo;ll be able to see some of the hidden levels of pug too!</p>
+<p> <br>
+<strong>So we have a horse, a pug, a pigeon, and cats&hellip; what animals are next on <a href="https://theuselessweb.com">The Useless Web</a>?</strong></p>
+<p>That is a good point, The Useless Web is a veritable zoo, often with these animal-based sites being some of the most popular out there. I guess at the end of the day these cute and weird animals are just catchy, funny, and memorable. There&rsquo;s about animals that can really inspire people&rsquo;s weird creativity as well!</p>
+<p>If I were to say anything is missing, I&rsquo;d say it&rsquo;s frogs or turtles. I&rsquo;ve got a couple of turtle ideas come to think of it, especially considering they&rsquo;re known to be slow they&rsquo;ll fit perfectly in my great desire of time-wastey simple fun. So I guess watch this space!</p>
+<p> <br>
+<strong>Any plans for the future of pug in a rug?</strong></p>
+<p>I&rsquo;ve had a few ideas, potentially incorporating some different pugs in different rugs, or even branching out into different breeds of dog, but for now, I am loyal to the pug in a rug! I wouldn&rsquo;t mind having some kind of tool to increase your count legitimately, but perhaps that energy is better spent on something new. Either way, watch this space I guess!</p>
+
+  </div>
+</article>
+
+
+          
+          <div class="pagination">
+  
+  
+    <a href="/sites/2/">  More Sites & Stories ... </a>
+  
+</div>
+        
+        <footer>
+  <div class="contents">
+    <p>Hi, I'm <a href="http://tholman.com">Tim Holman</a>. I built <a href="/">the useless web</a> in 2012, while locked up inside during a hurricane. For years now, its served as a hub for all things quirky and weird on the internet. </p><br>
+    <p>
+      Now, years later, I'm emailing around and trying to track down the stories of these sites, really to show that the creators of all these weird and wonderful websites come from all walks of life, with ideas and ambitions, and that everyone can create!
+    </p><br>
+    <p>
+     If you've got a site on the useless web and I haven't reached out, feel free to give me a bell, otherwise, I'll be getting to you as soon as I can track you down.
+    </p>
+  </div>
+</footer>
+
+    </div>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-35944549-1"></script>
+				<script>
+				  window.dataLayer = window.dataLayer || [];
+				  function gtag(){dataLayer.push(arguments);}
+				  gtag('js', new Date());
+
+				  gtag('config', 'UA-35944549-1');
+				</script><!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-DECK8LRP2Z"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-DECK8LRP2Z');
+</script></body>
+</html>
