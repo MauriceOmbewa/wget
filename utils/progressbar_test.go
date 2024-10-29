@@ -46,3 +46,22 @@ func TestProgressBar_EndTimer(t *testing.T) {
 		t.Errorf("expected duration to be at least 100ms, got %v", duration)
 	}
 }
+
+func TestProgressBar_CalculateSpeed(t *testing.T) {
+	total := int64(1000)
+	barLength := 20
+	pb := NewProgressBar(total, barLength)
+
+	pb.StartTimer()
+	time.Sleep(100 * time.Millisecond) // Simulate download time
+
+	// Simulate writing data
+	for i := 0; i < 10; i++ {
+		pb.Write(bytes.Repeat([]byte("x"), 100)) // Simulate 1000 bytes total
+	}
+
+	speed := pb.CalculateSpeed()
+	if speed <= 0 {
+		t.Errorf("expected speed to be greater than 0, got %f", speed)
+	}
+}
