@@ -11,7 +11,11 @@ This project is a recreation of some functionalities of wget using Go. It allows
 - Download files in the background
 - Download multiple files concurrently from a list
 - Mirror entire websites
-
+## Installatgion
+```sh
+git clone https://github.com/MauriceOmbewa/wget.git
+cd wget
+```
 ## Usage
 
 ### Basic Usage
@@ -24,22 +28,22 @@ go run . https://example.com/file.zip
 
 ### Flags
 
-- `-B`: Download in background
+- `-B`(Background Download): Run download as a goroutine and log output to a file.
   ```
   go run . -B https://example.com/file.zip
   ```
 
-- `-O`: Save file under a different name
+- `-O`(Save As): Use this flag to allow the user to specify a custom file name.
   ```
   go run . -O=newname.zip https://example.com/file.zip
   ```
 
-- `-P`: Specify save directory
+- `-P`(Save Directory): Allow users to specify a download directory.
   ```
   go run . -P=~/Downloads/ https://example.com/file.zip
   ```
 
-- `--rate-limit`: Limit download speed
+- `--rate-limit` Throttle the download by controlling download speed using time delays within the download function.
   ```
   go run . --rate-limit=400k https://example.com/file.zip
   ```
@@ -113,7 +117,14 @@ go test ./...
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+Follow this strp to contribute:
+
+- Fork the repository.
+- Create your feature branch (git checkout -b feature/awesome-feature).
+- Commit your changes (git commit -m 'feat: add awesome feature').
+- Push to the branch (git push origin feature/awesome-feature).
+- Open a pull request.
 
 ## License
 
-[Specify your license here]
+This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
