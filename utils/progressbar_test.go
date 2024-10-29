@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"testing"
+	"time"
 )
 
 // Mocked stdout for capturing print statements
@@ -30,5 +31,18 @@ func TestProgressBar_Write(t *testing.T) {
 	// Check if the progress bar is updated correctly
 	if pb.Written != int64(len(data)) {
 		t.Errorf("expected %d bytes written, got %d", len(data), pb.Written)
+	}
+}
+
+func TestProgressBar_EndTimer(t *testing.T) {
+	pb := NewProgressBar(1000, 20)
+	pb.StartTimer()
+
+	// Simulate some download time
+	time.Sleep(100 * time.Millisecond)
+
+	duration := pb.EndTimer()
+	if duration < 100*time.Millisecond {
+		t.Errorf("expected duration to be at least 100ms, got %v", duration)
 	}
 }
