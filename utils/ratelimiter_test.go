@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"testing"
 )
 
@@ -26,5 +27,22 @@ func TestParseRateLimit(t *testing.T) {
 		if result != test.expected {
 			t.Errorf("ParseRateLimit(%q) = %d; want %d", test.input, result, test.expected)
 		}
+	}
+}
+
+// TestNewRateLimitReader tests the NewRateLimitReader function
+func TestNewRateLimitReader(t *testing.T) {
+	reader := bytes.NewReader([]byte("Hello, World!"))
+	rateLimit := int64(1024) // 1KB/s
+	rlReader := NewRateLimitReader(reader, rateLimit)
+
+	if rlReader.reader == nil {
+		t.Error("NewRateLimitReader returned a nil reader")
+	}
+	if rlReader.rateLimit != rateLimit {
+		t.Errorf("NewRateLimitReader set rateLimit = %d; want %d", rlReader.rateLimit, rateLimit)
+	}
+	if rlReader.bucketSize != rateLimit {
+		t.Errorf("NewRateLimitReader set bucketSize = %d; want %d", rlReader.bucketSize, rateLimit)
 	}
 }
