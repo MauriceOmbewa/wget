@@ -1,5 +1,4 @@
-//function to download multiple files concurrently
-
+// function to download multiple files concurrently
 package utils
 
 import (
@@ -7,11 +6,11 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sync"
 )
 
-//function to read urls from a file
-
+// function to read urls from a file
 func ReadUrlsFromFile(filePath string) ([]string, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -32,7 +31,7 @@ func ReadUrlsFromFile(filePath string) ([]string, error) {
 	return urls, nil
 }
 
-func DownloadFilesConcurrently(urls []string, outputPrefix string, background bool, rateLimit int64) error {
+func DownloadFilesConcurrently(urls []string, outputPrefix string, background bool, rateLimit int64, path string) error {
 	var wg sync.WaitGroup
 	errorChan := make(chan error, len(urls))
 
@@ -53,7 +52,7 @@ func DownloadFilesConcurrently(urls []string, outputPrefix string, background bo
 		sizes[i] = resp.ContentLength
 		resp.Body.Close()
 	}
-	fmt.Printf("content size: %v\n", sizes)
+	fmt.Printf("Content size: %v\n", sizes)
 
 	for i, url := range urls {
 		wg.Add(1)
@@ -67,12 +66,17 @@ func DownloadFilesConcurrently(urls []string, outputPrefix string, background bo
 				filename = GetFileName(url)
 			}
 
+			// Combine path with filename if path is specified
+			if path != "" {
+				filename = filepath.Join(path, filename)
+			}
+
 			err := DownloadFile(url, filename, background, perFileRateLimit)
 			if err != nil {
 				errorChan <- fmt.Errorf("error downloading %s: %v", url, err)
 				return
 			}
-			fmt.Printf("finished %s\n", filename)
+			fmt.Printf("Finished %s\n", filename)
 		}(url, i)
 	}
 
