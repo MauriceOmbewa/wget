@@ -3,14 +3,16 @@ package utils
 import (
 	"flag"
 	"fmt"
+	"os"
 	"strings"
 )
 
-func CheckFlags() (output, url string, tolog bool, file string, rateLimit int64, mirror bool, reject, exclude []string, convertLinks bool) {
+func CheckFlags() (output, url string, tolog bool, file string, rateLimit int64, mirror bool, reject, exclude []string, convertLinks bool, path string) {
 	outputFile := flag.String("O", "", "Specify the output filename")
 	log := flag.Bool("B", false, "Run download in the background")
 	inputFile := flag.String("i", "", "Download multiple files from a list of URLs")
 	rateLimitFlag := flag.String("rate-limit", "", "Limit download speed (e.g., 400k, 2M)")
+	pathFlag := flag.String("P", "", "Specify the directory path for downloads") // New path flag
 
 	// New flags
 	mirrorFlag := flag.Bool("mirror", false, "Mirror the entire website")
@@ -26,15 +28,7 @@ func CheckFlags() (output, url string, tolog bool, file string, rateLimit int64,
 
 	if *inputFile == "" {
 		if flag.NArg() < 1 && !*mirrorFlag {
-			fmt.Println("Usage: go run . [-O filename] [-B] [-i urlfile] [--rate-limit rate] [--mirror] [-R suffixes] [-X directories] [--convert-links] <URL>")
-			fmt.Println("  -O filename      : Specify output filename")
-			fmt.Println("  -B               : Run download in background")
-			fmt.Println("  -i urlfile       : Download multiple URLs from file")
-			fmt.Println("  --rate-limit rate: Limit download speed (e.g., 400k, 2M)")
-			fmt.Println("  --mirror         : Mirror the entire website")
-			fmt.Println("  -R, --reject     : Reject file suffixes (comma-separated)")
-			fmt.Println("  -X, --exclude    : Exclude directories (comma-separated)")
-			fmt.Println("  --convert-links  : Convert links for offline viewing")
+			fmt.Println("Usage: go run . [-O filename] [-P path] [-B] [-i urlfile] [--rate-limit rate] [--mirror] [-R suffixes] [-X directories] [--convert-links] <URL>")
 			return
 		}
 		if flag.NArg() > 0 {
@@ -50,12 +44,16 @@ func CheckFlags() (output, url string, tolog bool, file string, rateLimit int64,
 	// Process new flags
 	reject = strings.Split(*rejectFlag, ",")
 	exclude = strings.Split(*excludeFlag, ",")
-
-	// Remove empty strings from reject and exclude slices
 	reject = removeEmptyStrings(reject)
 	exclude = removeEmptyStrings(exclude)
 
-	return *outputFile, url, *log, *inputFile, limit, *mirrorFlag, reject, exclude, *convertLinksFlag
+	// Expand "~" in path if necessary
+	if *pathFlag != "" && strings.HasPrefix(*pathFlag, "~") {
+		home := os.Getenv("HOME")
+		*pathFlag = strings.Replace(*pathFlag, "~", home, 1)
+	}
+
+	return *outputFile, url, *log, *inputFile, limit, *mirrorFlag, reject, exclude, *convertLinksFlag, *pathFlag
 }
 
 func removeEmptyStrings(s []string) []string {
