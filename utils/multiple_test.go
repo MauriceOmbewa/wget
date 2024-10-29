@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -74,5 +75,23 @@ func TestDownloadFilesConcurrently(t *testing.T) {
 		if _, err := os.Stat(filename); os.IsNotExist(err) {
 			t.Errorf("expected file %s to be downloaded, but it was not found", filename)
 		}
+	}
+}
+
+func TestDownloadFileErrorHandling(t *testing.T) {
+	// Use an invalid URL to trigger an error
+	url := "http://invalid-url.com/file"
+	fileName := "invalid_download_test.txt"
+
+	err := DownloadFile(url, fileName, false, 0)
+	if err == nil {
+		t.Errorf("expected an error for an invalid URL, but got none")
+	}
+
+	// Check for common network-related errors
+	if err != nil && !strings.Contains(err.Error(), "no such host") &&
+		!strings.Contains(err.Error(), "dial tcp") &&
+		!strings.Contains(err.Error(), "http") {
+		t.Errorf("unexpected error for invalid URL: %v", err)
 	}
 }
