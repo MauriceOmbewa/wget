@@ -81,7 +81,7 @@ func DownloadResources(htmlContent, pageURL, baseFolder string) map[string]strin
 	resourceMap := make(map[string]string)
 	var mutex sync.Mutex
 	var wg sync.WaitGroup
-	
+
 	// Create a channel to limit concurrent downloads
 	semaphore := make(chan struct{}, 5)
 
@@ -123,7 +123,7 @@ func DownloadResources(htmlContent, pageURL, baseFolder string) map[string]strin
 			wg.Add(1)
 			go func(absURL, resURL string) {
 				defer wg.Done()
-				
+
 				// Acquire semaphore
 				semaphore <- struct{}{}
 				defer func() { <-semaphore }()
@@ -261,12 +261,12 @@ func isSameDomain(baseURL, resourceURL string) bool {
 	if err != nil {
 		return false
 	}
-	
+
 	resource, err := url.Parse(resourceURL)
 	if err != nil {
 		return false
 	}
-	
+
 	return base.Host == resource.Host
 }
 

@@ -9,908 +9,424 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	// "bytes"
+	"sync"
 )
 
-// Main function remains unchanged
+// MirrorWebsite initiates the website mirroring process. It creates a base directory
+// named after the website's domain and starts downloading the website content.
 func MirrorWebsite(baseURL string, reject []string, exclude []string, convertLinks bool) error {
+	fmt.Printf("\n=== Starting mirror of %s ===\n", baseURL)
 	baseFolder, err := createDirectory(baseURL)
 	if err != nil {
-		return fmt.Errorf("error creating directory: %w", err)
+		return fmt.Errorf("error creating directory: %v", err)
 	}
-
-	visited := make(map[string]bool)
-	err = downloadPage(baseURL, baseFolder, reject, exclude, convertLinks, visited)
-	if err != nil {
-		return fmt.Errorf("error downloading initial page: %w", err)
-	}
-
-	return nil
+	fmt.Printf("Created directory: %s\n\n", baseFolder)
+	return downloadPage(baseURL, baseFolder, reject, exclude, convertLinks)
 }
 
-func downloadResources(htmlContent, pageURL, baseFolder string, reject, exclude []string, convertLinks bool, visited map[string]bool) error {
-	resourceRegex, err := regexp.Compile(`(?i)<(a|link|img|script)[^>]+(?:href|src)="([^"]+)"`)
-	if err != nil {
-		return fmt.Errorf("failed to compile resource regex: %w", err)
-	}
-
-	var lastErr error
-
-	// Process inline content first
-	inlineImages, _, err := extractImagesFromInline(htmlContent, pageURL)
-	if err != nil {
-		fmt.Printf("Warning: Error extracting inline images: %v\n", err)
-		lastErr = err
-	}
-
-	for _, imgPath := range inlineImages {
-		absoluteURL := resolveURL(pageURL, imgPath)
-		if absoluteURL != "" {
-			err := downloadFile(absoluteURL, baseFolder)
-			if err != nil {
-				fmt.Printf("Warning: Error downloading inline image %s: %v\n", absoluteURL, err)
-				lastErr = err
-			}
-		}
-	}
-
-	baseURLParsed, err := url.Parse(pageURL)
-	if err != nil {
-		return fmt.Errorf("failed to parse base URL: %w", err)
-	}
-
-	for _, match := range resourceRegex.FindAllStringSubmatch(htmlContent, -1) {
-		tagName := strings.ToLower(match[1])
-		resourceURL := match[2]
-
-		if resourceURL == "" ||
-			strings.HasPrefix(resourceURL, "#") ||
-			strings.HasPrefix(resourceURL, "javascript:") ||
-			strings.HasPrefix(resourceURL, "data:") {
-			continue
-		}
-
-		absoluteURL := resolveURL(pageURL, resourceURL)
-		if absoluteURL == "" {
-			fmt.Printf("Warning: Could not resolve URL: %s\n", resourceURL)
-			continue
-		}
-
-		if shouldReject(absoluteURL, reject) {
-			fmt.Printf("Skipping rejected URL: %s\n", absoluteURL)
-			continue
-		}
-
-		resourceURLParsed, err := url.Parse(absoluteURL)
-		if err != nil {
-			fmt.Printf("Warning: Could not parse resource URL %s: %v\n", absoluteURL, err)
-			continue
-		}
-
-		// Check if the resource is from the same domain or its subdomain
-		if !isSameOrSubdomain(baseURLParsed.Host, resourceURLParsed.Host) {
-			fmt.Printf("Skipping external resource: %s\n", absoluteURL)
-			continue
-		}
-
-		switch tagName {
-		case "a":
-			if strings.HasSuffix(strings.ToLower(resourceURL), ".html") ||
-				!strings.Contains(resourceURL, ".") {
-				err := downloadPage(absoluteURL, baseFolder, reject, exclude, convertLinks, visited)
-				if err != nil {
-					fmt.Printf("Warning: Error downloading linked page %s: %v\n", absoluteURL, err)
-					lastErr = err
-				}
-			}
-		case "link":
-			if strings.HasSuffix(strings.ToLower(resourceURL), ".css") {
-				err := downloadAndProcessCSS(absoluteURL, baseFolder, pageURL)
-				if err != nil {
-					fmt.Printf("Warning: Error processing CSS %s: %v\n", absoluteURL, err)
-					lastErr = err
-				}
-			}
-		case "script":
-			if strings.HasSuffix(strings.ToLower(resourceURL), ".js") {
-				err := downloadAndProcessJS(absoluteURL, baseFolder, pageURL)
-				if err != nil {
-					fmt.Printf("Warning: Error processing JS %s: %v\n", absoluteURL, err)
-					lastErr = err
-				}
-			}
-		case "img":
-			err := downloadFile(absoluteURL, baseFolder)
-			if err != nil {
-				fmt.Printf("Warning: Error downloading resource %s: %v\n", absoluteURL, err)
-				lastErr = err
-			}
-		}
-	}
-
-	return lastErr
-}
-
-// New helper function to check if a host is the same domain or a subdomain
-func isSameOrSubdomain(baseHost, resourceHost string) bool {
-	baseHostParts := strings.Split(baseHost, ".")
-	resourceHostParts := strings.Split(resourceHost, ".")
-
-	if len(resourceHostParts) < len(baseHostParts) {
-		return false
-	}
-
-	// Check if the base domain appears at the end of the resource domain
-	for i := 1; i <= len(baseHostParts); i++ {
-		if i > len(resourceHostParts) {
-			return false
-		}
-		if baseHostParts[len(baseHostParts)-i] != resourceHostParts[len(resourceHostParts)-i] {
-			return false
-		}
-	}
-
-	return true
-}
-
-func convertLinksInHTML(htmlContent, pageURL, baseFolder string) string {
-	// Compile regex to match href, src attributes, and inline style url() paths
-	resourceRegex, err := regexp.Compile(`(?i)(<(?:a|link|img|script|style)[^>]+?(?:href|src)=")([^"]+)(")`)
-	if err != nil {
-		fmt.Printf("Warning: Failed to compile resource regex: %v\n", err)
-		return htmlContent
-	}
-
-	urlInCSSRegex, err := regexp.Compile(`(?i)url\((['"]?)([^'")]+)['"]?\)`)
-	if err != nil {
-		fmt.Printf("Warning: Failed to compile CSS url regex: %v\n", err)
-		return htmlContent
-	}
-
-	// Function to handle replacing src/href attributes
-	replaceAttributeURLs := func(match string) string {
-		parts := resourceRegex.FindStringSubmatch(match)
-		if len(parts) != 4 {
-			return match
-		}
-
-		prefix := parts[1]
-		resourceURL := parts[2]
-		suffix := parts[3]
-
-		if resourceURL == "" ||
-			strings.HasPrefix(resourceURL, "#") ||
-			strings.HasPrefix(resourceURL, "javascript:") ||
-			strings.HasPrefix(resourceURL, "data:") ||
-			strings.HasPrefix(resourceURL, "mailto:") {
-			return match
-		}
-
-		absoluteURL := resolveURL(pageURL, resourceURL)
-		if absoluteURL == "" {
-			return match
-		}
-
-		baseURLParsed, err := url.Parse(pageURL)
-		if err != nil {
-			return match
-		}
-
-		resourceURLParsed, err := url.Parse(absoluteURL)
-		if err != nil {
-			return match
-		}
-
-		if !isSameOrSubdomain(baseURLParsed.Host, resourceURLParsed.Host) {
-			return match
-		}
-
-		relativePath, err := getRelativePath(absoluteURL, baseFolder)
-		if err != nil {
-			return match
-		}
-
-		if !strings.HasPrefix(relativePath, "./") {
-			relativePath = "./" + relativePath
-		}
-
-		return prefix + relativePath + suffix
-	}
-
-	// Function to handle replacing url() paths within CSS
-	replaceCSSURLs := func(cssContent string) string {
-		return urlInCSSRegex.ReplaceAllStringFunc(cssContent, func(cssMatch string) string {
-			parts := urlInCSSRegex.FindStringSubmatch(cssMatch)
-			if len(parts) != 3 {
-				return cssMatch
-			}
-
-			originalURL := parts[2]
-
-			if strings.HasPrefix(originalURL, "#") ||
-				strings.HasPrefix(originalURL, "javascript:") ||
-				strings.HasPrefix(originalURL, "data:") ||
-				strings.HasPrefix(originalURL, "mailto:") {
-				return cssMatch
-			}
-
-			absoluteURL := resolveURL(pageURL, originalURL)
-			if absoluteURL == "" {
-				return cssMatch
-			}
-
-			relativePath, err := getRelativePath(absoluteURL, baseFolder)
-			if err != nil {
-				return cssMatch
-			}
-
-			if strings.HasPrefix(relativePath, "/") {
-				relativePath = "." + relativePath
-			} else if !strings.HasPrefix(relativePath, "/") && !strings.HasPrefix(relativePath, "./") {
-				relativePath = "./" + relativePath
-			}
-
-			return "url('" + relativePath + "')"
-		})
-	}
-
-	// Replace attribute URLs in HTML content
-	modifiedContent := resourceRegex.ReplaceAllStringFunc(htmlContent, replaceAttributeURLs)
-
-	// Replace URLs within inline styles and <style> tags
-	styleTagRegex, err := regexp.Compile(`(<style[^>]*>)([\s\S]*?)(</style>)`)
-	if err != nil {
-		fmt.Printf("Warning: Failed to compile style tag regex: %v\n", err)
-		return modifiedContent
-	}
-
-	modifiedContent = styleTagRegex.ReplaceAllStringFunc(modifiedContent, func(styleMatch string) string {
-		parts := styleTagRegex.FindStringSubmatch(styleMatch)
-		if len(parts) != 4 {
-			return styleMatch
-		}
-
-		openTag := parts[1]
-		cssContent := parts[2]
-		closeTag := parts[3]
-
-		// Update URLs within CSS content
-		modifiedCSSContent := replaceCSSURLs(cssContent)
-		return openTag + modifiedCSSContent + closeTag
-	})
-
-	return modifiedContent
-}
-
-func notConvertLinksInHTML(htmlContent, pageURL, baseFolder string) string {
-    // Compile regex to match href, src attributes, and inline style url() paths
-    resourceRegex, err := regexp.Compile(`(?i)(<(?:a|link|img|script|style)[^>]+?(?:href|src)=")([^"]+)(")`)
-    if err != nil {
-        fmt.Printf("Warning: Failed to compile resource regex: %v\n", err)
-        return htmlContent
-    }
-
-    urlInCSSRegex, err := regexp.Compile(`(?i)url\((['"]?)([^'")]+)['"]?\)`)
-    if err != nil {
-        fmt.Printf("Warning: Failed to compile CSS url regex: %v\n", err)
-        return htmlContent
-    }
-
-    // Function to handle replacing src/href attributes
-    replaceAttributeURLs := func(match string) string {
-        parts := resourceRegex.FindStringSubmatch(match)
-        if len(parts) != 4 {
-            return match
-        }
-
-        prefix := parts[1]
-        resourceURL := parts[2]
-        suffix := parts[3]
-
-        if resourceURL == "" ||
-            strings.HasPrefix(resourceURL, "#") ||
-            strings.HasPrefix(resourceURL, "javascript:") ||
-            strings.HasPrefix(resourceURL, "data:") ||
-            strings.HasPrefix(resourceURL, "mailto:") {
-            return match
-        }
-
-        absoluteURL := resolveURL(pageURL, resourceURL)
-        if absoluteURL == "" {
-            return match
-        }
-
-        baseURLParsed, err := url.Parse(pageURL)
-        if err != nil {
-            return match
-        }
-
-        resourceURLParsed, err := url.Parse(absoluteURL)
-        if err != nil {
-            return match
-        }
-
-        if !isSameOrSubdomain(baseURLParsed.Host, resourceURLParsed.Host) {
-            return match
-        }
-
-        relativePath, err := getRelativePath(absoluteURL, baseFolder)
-        if err != nil {
-            return match
-        }
-
-        if !strings.HasPrefix(relativePath, "./") {
-            relativePath = "./" + relativePath
-        }
-
-        return prefix + relativePath + suffix
-    }
-
-    // Function to handle replacing url() paths within CSS
-    replaceCSSURLs := func(cssContent string) string {
-        return urlInCSSRegex.ReplaceAllStringFunc(cssContent, func(cssMatch string) string {
-            parts := urlInCSSRegex.FindStringSubmatch(cssMatch)
-            if len(parts) != 3 {
-                return cssMatch
-            }
-
-            originalURL := parts[2]
-
-            if strings.HasPrefix(originalURL, "#") ||
-                strings.HasPrefix(originalURL, "javascript:") ||
-                strings.HasPrefix(originalURL, "data:") ||
-                strings.HasPrefix(originalURL, "mailto:") {
-                return cssMatch
-            }
-
-            absoluteURL := resolveURL(pageURL, originalURL)
-            if absoluteURL == "" {
-                return cssMatch
-            }
-
-            relativePath, err := getRelativePath(absoluteURL, baseFolder)
-            if err != nil {
-                return cssMatch
-            }
-
-            if strings.HasPrefix(relativePath, "/") {
-                relativePath = "." + relativePath
-            } else if !strings.HasPrefix(relativePath, "/") && !strings.HasPrefix(relativePath, "./") {
-                relativePath = "./" + relativePath
-            }
-
-            return "url('" + relativePath + "')"
-        })
-    }
-
-    // Replace attribute URLs in HTML content
-    modifiedContent := resourceRegex.ReplaceAllStringFunc(htmlContent, replaceAttributeURLs)
-
-    // Replace URLs within inline styles and <style> tags
-    styleTagRegex, err := regexp.Compile(`(<style[^>]*>)([\s\S]*?)(</style>)`)
-    if err != nil {
-        fmt.Printf("Warning: Failed to compile style tag regex: %v\n", err)
-        return modifiedContent
-    }
-
-    modifiedContent = styleTagRegex.ReplaceAllStringFunc(modifiedContent, func(styleMatch string) string {
-        parts := styleTagRegex.FindStringSubmatch(styleMatch)
-        if len(parts) != 4 {
-            return styleMatch
-        }
-
-        openTag := parts[1]
-        cssContent := parts[2]
-        closeTag := parts[3]
-
-        // Update URLs within CSS content
-        modifiedCSSContent := replaceCSSURLs(cssContent)
-        return openTag + modifiedCSSContent + closeTag
-    })
-
-    return modifiedContent
-}
-
+// createDirectory creates a directory named after the website's domain.
+// It returns the created directory path or an error if creation fails.
 func createDirectory(baseURL string) (string, error) {
 	parsedURL, err := url.Parse(baseURL)
 	if err != nil {
 		return "", err
 	}
 	domain := parsedURL.Host
-	err = os.MkdirAll(domain, 0o755)
+	err = os.MkdirAll(domain, 0755)
 	return domain, err
 }
 
-func downloadPage(pageURL, baseFolder string, reject, exclude []string, convertLinks bool, visited map[string]bool) error {
-	if visited[pageURL] {
-		return nil
-	}
-	visited[pageURL] = true
-
+// downloadPage downloads a single webpage and its resources. It processes the HTML content,
+// downloads all associated resources, and updates links in the HTML if specified.
+// The page is saved maintaining the original URL path structure.
+func downloadPage(pageURL, baseFolder string, reject []string, exclude []string, convertLinks bool) error {
+	fmt.Printf("Downloading page: %s\n", pageURL)
 	resp, err := http.Get(pageURL)
 	if err != nil {
-		// Don't treat HTTP errors as fatal for linked pages
-		fmt.Printf("Warning: Could not access %s: %v\n", pageURL, err)
-		return nil
+		return err
 	}
 	defer resp.Body.Close()
 
-	// Handle non-200 status codes
 	if resp.StatusCode != http.StatusOK {
-		// For the initial page (baseURL), we want to return an error
-		if len(visited) == 1 {
-			return fmt.Errorf("failed to fetch initial page %s: status code %d", pageURL, resp.StatusCode)
-		}
-		// For linked pages, just log a warning and continue
-		fmt.Printf("Warning: Page %s returned status code %d\n", pageURL, resp.StatusCode)
-		return nil
+		return fmt.Errorf("failed to fetch page: %s", pageURL)
 	}
-
-	// Check if the content is actually HTML before processing
-	contentType := resp.Header.Get("Content-Type")
-	if !strings.Contains(strings.ToLower(contentType), "text/html") {
-		fmt.Printf("Skipping non-HTML content at %s (Content-Type: %s)\n", pageURL, contentType)
-		return nil
-	}
+	fmt.Printf("Got response: %s for %s\n", resp.Status, pageURL)
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("error reading response body: %w", err)
-	}
-
-	relativePath, err := getRelativePath(pageURL, baseFolder)
-	if err != nil {
-		return fmt.Errorf("error getting relative path: %w", err)
-	}
-
-	for _, excludeDir := range exclude {
-		if strings.HasPrefix(relativePath, excludeDir) {
-			return nil
-		}
-	}
-
-	htmlPath := filepath.Join(baseFolder, relativePath)
-	err = os.MkdirAll(filepath.Dir(htmlPath), 0o755)
-	if err != nil {
-		return fmt.Errorf("error creating directories: %w", err)
+		return err
 	}
 
 	htmlContent := string(body)
+	resourceMap := downloadResources(htmlContent, pageURL, baseFolder, reject, exclude)
+
 	if convertLinks {
-		htmlContent = convertLinksInHTML(htmlContent, pageURL, baseFolder)
-	} else if !convertLinks{
-		htmlContent = notConvertLinksInHTML(htmlContent, pageURL, baseFolder)
+		htmlContent = updateLinks(htmlContent, resourceMap)
+	} else {
+		htmlContent = updateCSSJSPaths(htmlContent, resourceMap)
 	}
 
-	// absoluteURL := resolveURL(pageURL, resourceURL)
-	// if absoluteURL == "" {
-	// 	return match
-	// }
-
-	// relativePath, err = getRelativePath(absoluteURL, baseFolder)
-	// if err != nil {
-	// 	return err
-	// }
-
-	returnValue := downloadResources(htmlContent, pageURL, baseFolder, reject, exclude, convertLinks, visited)
-
-	err = os.WriteFile(htmlPath, []byte(htmlContent), 0o644)
-	if err != nil {
-		return fmt.Errorf("error writing file: %w", err)
-	}
-
-	fmt.Printf("Successfully downloaded: %s\n", relativePath)
-	
-	return returnValue
-}
-
-func downloadFile(fileURL, baseFolder string) error {
-	resp, err := http.Get(fileURL)
+	// Get the URL path
+	parsedURL, err := url.Parse(pageURL)
 	if err != nil {
 		return err
+	}
+	// Determine the path for saving the HTML file
+	relativePath := strings.TrimPrefix(parsedURL.Path, "/")
+	fmt.Println("Relative path:", relativePath)
+	if relativePath == "" {
+		relativePath = "index.html"
+	} else if !strings.Contains(relativePath, ".") {
+		fmt.Println("No extension found, checking if content is HTML")
+		// Create a temporary file to check if content is HTML
+		tempPath := filepath.Join(baseFolder, relativePath)
+		if err := os.MkdirAll(tempPath, 0755); err != nil {
+			return fmt.Errorf("failed to create temp directory: %v", err)
+		}
+		
+		tempFile := filepath.Join(tempPath, "temp")
+		if err := os.WriteFile(tempFile, []byte(htmlContent), 0644); err != nil {
+			return fmt.Errorf("failed to write temp file: %v", err)
+		}
+		
+		// Check if the content is HTML
+		if isHTMLFile(tempFile) {
+			relativePath = filepath.Join(relativePath, "index.html")
+			fmt.Printf("Detected HTML content, using path: %s\n", relativePath)
+		}
+		
+		// Clean up temp file
+		os.Remove(tempFile)
+	}
+
+	// Create all necessary directories
+	dir := filepath.Join(baseFolder, filepath.Dir(relativePath))
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create directories: %v", err)
+	}
+
+	// Save the HTML file
+	htmlPath := filepath.Join(baseFolder, relativePath)
+	fmt.Printf("Saving HTML to: %s\n", filepath.Join(baseFolder, relativePath))
+	return os.WriteFile(htmlPath, []byte(htmlContent), 0644)
+}
+
+// updateCSSJSPaths modifies CSS and JavaScript file paths in HTML content to use relative paths.
+// It updates both src and href attributes to point to the locally downloaded files.
+func updateCSSJSPaths(htmlContent string, resourceMap map[string]string) string {
+	for originalURL, filename := range resourceMap {
+		if strings.HasSuffix(strings.ToLower(originalURL), ".css") || strings.HasSuffix(strings.ToLower(originalURL), ".js") {
+			// Handle src attribute with both quote types
+			htmlContent = strings.ReplaceAll(htmlContent,
+				fmt.Sprintf(`src="%s"`, originalURL),
+				fmt.Sprintf(`src="./%s"`, filename))
+			htmlContent = strings.ReplaceAll(htmlContent,
+				fmt.Sprintf(`src='%s'`, originalURL),
+				fmt.Sprintf(`src='./%s'`, filename))
+			
+			// Handle href attribute for CSS files with both quote types
+			htmlContent = strings.ReplaceAll(htmlContent,
+				fmt.Sprintf(`href="%s"`, originalURL),
+				fmt.Sprintf(`href="./%s"`, filename))
+			htmlContent = strings.ReplaceAll(htmlContent,
+				fmt.Sprintf(`href='%s'`, originalURL),
+				fmt.Sprintf(`href='./%s'`, filename))
+		}
+	}
+	return htmlContent
+}
+//bool to check whether to add .html to files that don't have an extension and are html files if we look at the content
+func isHTMLFile(path string) bool {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(content), "<html") || strings.Contains(string(content), "<!DOCTYPE html")
+}
+
+
+// updateLinks modifies all resource links in HTML content to use relative paths.
+// This includes images, stylesheets, scripts, and other embedded resources.
+func updateLinks(htmlContent string, resourceMap map[string]string) string {
+	for originalURL, filename := range resourceMap {
+		htmlContent = strings.ReplaceAll(htmlContent,
+			fmt.Sprintf(`src="%s"`, originalURL),
+			fmt.Sprintf(`src="./%s"`, filename))
+		htmlContent = strings.ReplaceAll(htmlContent,
+			fmt.Sprintf(`href="%s"`, originalURL),
+			fmt.Sprintf(`href="./%s"`, filename))
+		htmlContent = strings.ReplaceAll(htmlContent,
+			fmt.Sprintf(`url(%s)`, originalURL),
+			fmt.Sprintf(`url("./%s")`, filename))
+		htmlContent = strings.ReplaceAll(htmlContent,
+			fmt.Sprintf(`url('%s')`, originalURL),
+			fmt.Sprintf(`url('./%s')`, filename))
+		htmlContent = strings.ReplaceAll(htmlContent,
+			fmt.Sprintf(`url("%s")`, originalURL),
+			fmt.Sprintf(`url("./%s")`, filename))
+	}
+	return htmlContent
+}
+
+// downloadResources scans HTML content for resources (images, scripts, stylesheets, etc.)
+// and downloads them concurrently. It maintains a map of original URLs to local file paths.
+// Uses a semaphore to limit concurrent downloads.
+func downloadResources(htmlContent, pageURL, baseFolder string, reject []string, exclude []string) map[string]string {
+	fmt.Printf("\nScanning for resources in: %s\n", pageURL)
+	resourceMap := make(map[string]string)
+	var mutex sync.Mutex
+	var wg sync.WaitGroup
+
+	semaphore := make(chan struct{}, 5)
+
+	patterns := []*regexp.Regexp{
+		regexp.MustCompile(`src=['"]([^'"]*?)['"]`),                              // src with both quote types
+		regexp.MustCompile(`href=['"]([^'"]*?)['"]`),                             // href with both quote types
+		regexp.MustCompile(`url\(['"]?([^'"()]+)['"]?\)`),                        // CSS url()
+		regexp.MustCompile(`@import\s+['"]([^'"]+)['"]`),                         // CSS @import
+		regexp.MustCompile(`<script[^>]+src=['"]([^'"]+)['"]`),                   // script tags
+		regexp.MustCompile(`<link[^>]+href=['"]([^'"]+)['"]`),                    // link tags
+		regexp.MustCompile(`<img[^>]+src=['"]([^'"]+)['"]`),                      // img tags
+		regexp.MustCompile(`content=['"]([^'"]+\.(?:png|jpg|jpeg|gif|ico))['"]`), // meta images
+	}
+
+	processedURLs := make(map[string]bool)
+	for _, pattern := range patterns {
+		matches := pattern.FindAllStringSubmatch(htmlContent, -1)
+		for _, match := range matches {
+			if len(match) < 2 {
+				continue
+			}
+			resourceURL := match[1]
+
+			if processedURLs[resourceURL] {
+				continue
+			}
+			processedURLs[resourceURL] = true
+
+			if shouldSkipResource(resourceURL) {
+				continue
+			}
+
+			absoluteURL := resolveURL(pageURL, resourceURL)
+			if absoluteURL == "" || !isSameDomain(pageURL, absoluteURL) {
+				continue
+			}
+
+			wg.Add(1)
+			go func(absURL, resURL string) {
+				defer wg.Done()
+				semaphore <- struct{}{}
+				defer func() { <-semaphore }()
+
+				if filename, err := downloadFile(absURL, baseFolder, reject, exclude); err == nil {
+					mutex.Lock()
+					resourceMap[resURL] = filename
+					mutex.Unlock()
+
+					if strings.HasSuffix(strings.ToLower(filename), ".css") {
+						if cssContent, err := os.ReadFile(filepath.Join(baseFolder, filename)); err == nil {
+							cssResources := downloadCSSResources(string(cssContent), absURL, baseFolder, reject, exclude)
+							mutex.Lock()
+							for k, v := range cssResources {
+								resourceMap[k] = v
+							}
+							mutex.Unlock()
+						}
+					}
+				}
+			}(absoluteURL, resourceURL)
+		}
+	}
+
+	wg.Wait()
+	return resourceMap
+}
+
+// downloadCSSResources scans CSS content for referenced resources (like images and fonts)
+// and downloads them concurrently. Similar to downloadResources but specific to CSS files.
+func downloadCSSResources(cssContent, baseURL, baseFolder string, reject []string, exclude []string) map[string]string {
+	fmt.Printf("Scanning CSS for resources from: %s\n", baseURL)
+	resourceMap := make(map[string]string)
+	var mutex sync.Mutex
+	var wg sync.WaitGroup
+
+	patterns := []*regexp.Regexp{
+		regexp.MustCompile(`url\(['"]?([^'"()]+)['"]?\)`),
+		regexp.MustCompile(`@import\s+['"]([^'"]+)['"]`),
+	}
+
+	semaphore := make(chan struct{}, 5)
+
+	for _, pattern := range patterns {
+		matches := pattern.FindAllStringSubmatch(cssContent, -1)
+		for _, match := range matches {
+			if len(match) < 2 {
+				continue
+			}
+			resourceURL := match[1]
+
+			if shouldSkipResource(resourceURL) {
+				continue
+			}
+
+			absoluteURL := resolveURL(baseURL, resourceURL)
+			if absoluteURL == "" || !isSameDomain(baseURL, absoluteURL) {
+				continue
+			}
+
+			wg.Add(1)
+			go func(absURL, resURL string) {
+				defer wg.Done()
+				semaphore <- struct{}{}
+				defer func() { <-semaphore }()
+
+				if filename, err := downloadFile(absURL, baseFolder, reject, exclude); err == nil {
+					mutex.Lock()
+					resourceMap[resURL] = filename
+					mutex.Unlock()
+				}
+			}(absoluteURL, resourceURL)
+		}
+	}
+
+	wg.Wait()
+	return resourceMap
+}
+
+// shouldSkipResource checks if a resource URL should be skipped based on its scheme
+// or if it's a special URL type (like data: URLs, javascript:, mailto:, etc.)
+func shouldSkipResource(resourceURL string) bool {
+	return strings.HasPrefix(resourceURL, "data:") ||
+		strings.HasPrefix(resourceURL, "#") ||
+		strings.HasPrefix(resourceURL, "javascript:") ||
+		strings.HasPrefix(resourceURL, "mailto:") ||
+		strings.HasPrefix(resourceURL, "tel:") ||
+		resourceURL == "" ||
+		resourceURL == "/"
+}
+
+// downloadFile downloads a single file from fileURL and saves it to the appropriate
+// location in baseFolder, maintaining the original path structure.
+// Returns the relative path to the downloaded file or an error.
+func downloadFile(fileURL, baseFolder string, reject []string, exclude []string) (string, error) {
+	if !shouldDownloadFile(fileURL, reject, exclude) {
+		fmt.Printf("Skipping filtered file: %s\n", fileURL)
+		return "", fmt.Errorf("file filtered out: %s", fileURL)
+	}
+
+	fmt.Printf("Downloading resource: %s\n", fileURL)
+	resp, err := http.Get(fileURL)
+	if err != nil {
+		fmt.Printf("Error downloading %s: %v\n", fileURL, err)
+		return "", err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("received status code %d", resp.StatusCode)
+	u, err := url.Parse(fileURL)
+	if err != nil {
+		return "", err
 	}
 
-	relativePath, err := getRelativePath(fileURL, baseFolder)
-	if err != nil {
-		return err
+	// Get the path without leading slash
+	relativePath := strings.TrimPrefix(u.Path, "/")
+	if relativePath == "" {
+		return "", fmt.Errorf("empty path")
 	}
 
-	filePath := filepath.Join(baseFolder, relativePath)
-	err = os.MkdirAll(filepath.Dir(filePath), 0o755)
-	if err != nil {
-		return err
+	// Create the full path including folders
+	fullPath := filepath.Join(baseFolder, relativePath)
+
+	// Create all necessary directories
+	dir := filepath.Dir(fullPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create directories: %v", err)
 	}
 
-	out, err := os.Create(filePath)
+	// Create and write to the file
+	out, err := os.Create(fullPath)
 	if err != nil {
-		return err
+		return "", fmt.Errorf("failed to create file: %v", err)
 	}
 	defer out.Close()
 
 	_, err = io.Copy(out, resp.Body)
 	if err != nil {
-		return err
+		return "", fmt.Errorf("failed to write file: %v", err)
 	}
 
-	fmt.Printf("Downloaded: %s\n", relativePath)
-	return nil
+	// After successful download
+	fmt.Printf("Successfully downloaded: %s -> %s/%s\n", fileURL, baseFolder, relativePath)
+	return relativePath, nil
 }
 
-func resolveURL(baseURL, resourceURL string) string {
-	if strings.HasPrefix(resourceURL, "http") {
-		return resourceURL
+// shouldDownloadFile checks if a file should be downloaded based on reject and exclude patterns.
+// Returns false if the file matches any reject pattern or exclude pattern.
+func shouldDownloadFile(fileURL string, reject []string, exclude []string) bool {
+	u, err := url.Parse(fileURL)
+	if err != nil {
+		return false
 	}
-	parsedBaseURL, err := url.Parse(baseURL)
+
+	urlPath := u.Path
+
+	// First check rejects - if any match, don't download
+	for _, pattern := range reject {
+		if strings.Contains(urlPath, pattern) {
+			return false
+		}
+	}
+
+	// If exclude patterns exist, return false only if the path matches an exclude pattern
+	if len(exclude) > 0 {
+		for _, pattern := range exclude {
+			if strings.HasPrefix(urlPath, pattern) {
+				return false // Skip this file as it matches exclude pattern
+			}
+		}
+	}
+
+	// If we get here, the file should be downloaded
+	return true
+}
+
+// resolveURL converts a relative URL to an absolute URL using the base URL.
+// Handles both absolute URLs and relative URLs (with or without leading slash).
+func resolveURL(baseURL, resourcePath string) string {
+	if strings.HasPrefix(resourcePath, "http://") || strings.HasPrefix(resourcePath, "https://") {
+		return resourcePath
+	}
+
+	base, err := url.Parse(baseURL)
 	if err != nil {
 		return ""
 	}
-	resolvedURL := parsedBaseURL.ResolveReference(&url.URL{Path: resourceURL})
-	return resolvedURL.String()
+
+	if strings.HasPrefix(resourcePath, "/") {
+		base.Path = resourcePath
+		return base.String()
+	}
+
+	rel, err := url.Parse(resourcePath)
+	if err != nil {
+		return ""
+	}
+
+	return base.ResolveReference(rel).String()
 }
 
-func getRelativePath(resourceURL, baseFolder string) (string, error) {
-    parsedURL, err := url.Parse(resourceURL)
-    if err != nil {
-        return "", err
-    }
-
-    path := parsedURL.Path
-    if path == "" || strings.HasSuffix(path, "/") {
-        path = filepath.Join(path, "index.html")
-    } else {
-        ext := filepath.Ext(path)
-        if ext == "" {
-            path += ".html"
-        }
-    }
-
-    // Clean the path to handle any ".." or "." components
-    cleanPath := filepath.Clean(path)
-
-    // Convert URL path to file system path
-    filePath := filepath.Join(baseFolder, cleanPath)
-
-    // Ensure the path is relative to the base folder
-    relativePath, err := filepath.Rel(baseFolder, filePath)
-    if err != nil {
-        return "", err
-    }
-
-    // Ensure relativePath uses forward slashes for URLs
-    relativePath = filepath.ToSlash(relativePath)
-
-    // Prepend "./" if the path does not start with "." or "/"
-    if !strings.HasPrefix(relativePath, "./") && !strings.HasPrefix(relativePath, "/") {
-        relativePath = "./" + relativePath
-    }
-
-    return relativePath, nil
-}
-
-func shouldReject(resourceURL string, reject []string) bool {
-	for _, suffix := range reject {
-		if strings.HasSuffix(resourceURL, suffix) {
-			return true
-		}
-	}
-	return false
-}
-
-func extractImagesFromCSS(cssContent, baseURL string) ([]string, string, error) {
-    var images []string
-    urlRegex, err := regexp.Compile(`url\(['"]?([^'"()]+)['"]?\)`)
-    if err != nil {
-        return nil, cssContent, fmt.Errorf("failed to compile CSS URL regex: %w", err)
-    }
-
-    modifiedContent := cssContent
-    matches := urlRegex.FindAllStringSubmatch(cssContent, -1)
-    matchIndices := urlRegex.FindAllStringSubmatchIndex(cssContent, -1)
-
-    // Process matches in reverse order to avoid offset issues
-    for i := len(matches) - 1; i >= 0; i-- {
-        match := matches[i]
-        indices := matchIndices[i]
-
-        if len(match) >= 2 {
-            path := match[1]  // The captured path group
-
-            // Skip data URLs and external URLs
-            if !strings.HasPrefix(path, "data:") && !strings.HasPrefix(path, "http") {
-                images = append(images, path)
-
-                // Create the new path with dot prefix
-                newPath := path
-                if !strings.HasPrefix(path, "/") && !strings.HasPrefix(path, ".") {
-                    newPath = "./" + path
-                } else if strings.HasPrefix(path, "/") {
-                    newPath = "." + path
-                }
-
-                // Create the new url() statement
-                newFullMatch := fmt.Sprintf("url('%s')", newPath)
-
-                // Replace in the content using the correct indices
-                start := indices[0]
-                end := indices[1]
-                modifiedContent = modifiedContent[:start] + newFullMatch + modifiedContent[end:]
-            }
-        }
-    }
-
-    return images, modifiedContent, nil
-}
-
-func extractImagesFromJS(jsContent, baseURL string) ([]string, string, error) {
-    var images []string
-    modifiedContent := jsContent
-
-    patterns := []string{
-        `(['"])([^'"]+\.(?:jpg|jpeg|png|gif|svg|webp))(['"])`,
-        `(['"])([^'"]+\/images\/[^'"]+)(['"])`,
-        `(['"])([^'"]+\/img\/[^'"]+)(['"])`,
-    }
-
-    for _, pattern := range patterns {
-        regex, err := regexp.Compile(pattern)
-        if err != nil {
-            return nil, modifiedContent, fmt.Errorf("failed to compile JS pattern regex: %w", err)
-        }
-
-        matches := regex.FindAllStringSubmatch(modifiedContent, -1)
-        matchIndices := regex.FindAllStringSubmatchIndex(modifiedContent, -1)
-
-        // Process matches in reverse order to avoid offset issues
-        for i := len(matches) - 1; i >= 0; i-- {
-            match := matches[i]
-            indices := matchIndices[i]
-            
-            if len(match) >= 4 {
-                quote := match[1]  // Preserve the original quote style
-                path := match[2]
-
-                if !strings.HasPrefix(path, "data:") && !strings.HasPrefix(path, "http") {
-                    images = append(images, path)
-
-                    // Create the new path with dot prefix
-                    newPath := path
-                    if !strings.HasPrefix(path, "/") && !strings.HasPrefix(path, ".") {
-                        newPath = "./" + path
-                    } else if strings.HasPrefix(path, "/") {
-                        newPath = "." + path
-                    }
-
-                    // Replace in the content using the correct indices
-                    start := indices[0]
-                    end := indices[1]
-                    modifiedContent = modifiedContent[:start] + quote + newPath + quote + modifiedContent[end:]
-                }
-            }
-        }
-    }
-
-    return images, modifiedContent, nil
-}
-
-func extractImagesFromHTML(htmlContent, baseURL string) ([]string, string, error) {
-    var images []string
-    modifiedContent := htmlContent
-
-    // Updated regex to capture the quotes and full img tag
-    patterns := []string{
-        `(<img[^>]+src=)(['"])([^'"]+\.(?:jpg|jpeg|png|gif|svg|webp))(['"])([^>]*>)`,
-        `(<img[^>]+src=)(['"])([^'"]+\/images\/[^'"]+)(['"])([^>]*>)`,
-        `(<img[^>]+src=)(['"])([^'"]+\/img\/[^'"]+)(['"])([^>]*>)`,
-    }
-
-    for _, pattern := range patterns {
-        regex, err := regexp.Compile(pattern)
-        if err != nil {
-            return nil, modifiedContent, fmt.Errorf("failed to compile HTML pattern regex: %w", err)
-        }
-
-        matches := regex.FindAllStringSubmatch(modifiedContent, -1)
-        matchIndices := regex.FindAllStringSubmatchIndex(modifiedContent, -1)
-
-        // Process matches in reverse order to avoid offset issues
-        for i := len(matches) - 1; i >= 0; i-- {
-            match := matches[i]
-            indices := matchIndices[i]
-
-            if len(match) >= 4 {
-                srcPrefix := match[1]    // <img src=
-                quote := match[2]        // quote character
-                path := match[3]         // the actual path
-                restOfTag := match[5]    // rest of the img tag
-
-                if !strings.HasPrefix(path, "data:") && !strings.HasPrefix(path, "http") {
-                    images = append(images, path)
-
-                    // Create the new path with dot prefix
-                    newPath := path
-                    if !strings.HasPrefix(path, "/") && !strings.HasPrefix(path, ".") {
-                        newPath = "./" + path
-                    } else if strings.HasPrefix(path, "/") {
-                        newPath = "." + path
-                    }
-
-                    // Replace in the content using the correct indices
-                    start := indices[0]
-                    end := indices[1]
-                    modifiedContent = modifiedContent[:start] + srcPrefix + quote + newPath + quote + restOfTag + modifiedContent[end:]
-                }
-            }
-        }
-    }
-
-    return images, modifiedContent, nil
-}
-
-// 3. Fix extractImagesFromInline to ensure consistent path handling in style blocks
-func extractImagesFromInline(htmlContent, baseURL string) ([]string, string, error) {
-    var images []string
-    modifiedContent := htmlContent
-
-    // Extract and process inline styles
-    styleRegex, err := regexp.Compile(`(<style[^>]*>)([\s\S]*?)(</style>)`)
-    if err != nil {
-        return nil, modifiedContent, fmt.Errorf("failed to compile style regex: %w", err)
-    }
-
-    styleMatches := styleRegex.FindAllStringSubmatchIndex(modifiedContent, -1)
-    for i := len(styleMatches) - 1; i >= 0; i-- {
-        match := styleMatches[i]
-        if len(match) >= 8 {
-            openTag := modifiedContent[match[2]:match[3]]
-            cssContent := modifiedContent[match[4]:match[5]]
-            closeTag := modifiedContent[match[6]:match[7]]
-
-            cssImages, modifiedCSS, err := extractImagesFromCSS(cssContent, baseURL)
-            if err != nil {
-                return nil, modifiedContent, fmt.Errorf("failed to extract CSS images: %w", err)
-            }
-            images = append(images, cssImages...)
-
-            // Replace the content between style tags with modified content
-            modifiedContent = modifiedContent[:match[0]] + openTag + modifiedCSS + closeTag + modifiedContent[match[1]:]
-        }
-    }
-
-    // Similar updates for script and HTML blocks...
-    scriptRegex, err := regexp.Compile(`(<script[^>]*>)([\s\S]*?)(</script>)`)
-    if err != nil {
-        return nil, modifiedContent, fmt.Errorf("failed to compile script regex: %w", err)
-    }
-
-    scriptMatches := scriptRegex.FindAllStringSubmatchIndex(modifiedContent, -1)
-    for i := len(scriptMatches) - 1; i >= 0; i-- {
-        match := scriptMatches[i]
-        if len(match) >= 8 {
-            openTag := modifiedContent[match[2]:match[3]]
-            jsContent := modifiedContent[match[4]:match[5]]
-            closeTag := modifiedContent[match[6]:match[7]]
-
-            jsImages, modifiedJS, err := extractImagesFromJS(jsContent, baseURL)
-            if err != nil {
-                return nil, modifiedContent, fmt.Errorf("failed to extract JS images: %w", err)
-            }
-            images = append(images, jsImages...)
-
-            // Replace the content between script tags with modified content
-            modifiedContent = modifiedContent[:match[0]] + openTag + modifiedJS + closeTag + modifiedContent[match[1]:]
-        }
-    }
-
-    return images, modifiedContent, nil
-}
-
-func downloadAndProcessCSS(cssURL, baseFolder, pageURL string) error {
-	resp, err := http.Get(cssURL)
+// isSameDomain checks if two URLs belong to the same domain.
+// Used to ensure we only download resources from the target website.
+func isSameDomain(baseURL, resourceURL string) bool {
+	base, err := url.Parse(baseURL)
 	if err != nil {
-		return fmt.Errorf("failed to download CSS: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("received status code %d for CSS", resp.StatusCode)
+		return false
 	}
 
-	content, err := io.ReadAll(resp.Body)
+	resource, err := url.Parse(resourceURL)
 	if err != nil {
-		return fmt.Errorf("failed to read CSS content: %w", err)
+		return false
 	}
 
-	// Extract images and get modified content
-	images, modifiedContent, err := extractImagesFromCSS(string(content), pageURL)
-	if err != nil {
-		return fmt.Errorf("failed to extract images from CSS: %w", err)
-	}
-
-	// Download images
-	for _, imgPath := range images {
-		absoluteURL := resolveURL(cssURL, imgPath)
-		if absoluteURL != "" {
-			err := downloadFile(absoluteURL, baseFolder)
-			if err != nil {
-				fmt.Printf("Warning: Error downloading CSS image %s: %v\n", absoluteURL, err)
-			}
-		}
-	}
-
-	// Save modified CSS content
-	relativePath, err := getRelativePath(cssURL, baseFolder)
-	if err != nil {
-		return fmt.Errorf("failed to get relative path for CSS: %w", err)
-	}
-
-	filePath := filepath.Join(baseFolder, relativePath)
-	err = os.MkdirAll(filepath.Dir(filePath), 0o755)
-	if err != nil {
-		return fmt.Errorf("failed to create CSS directory: %w", err)
-	}
-
-	err = os.WriteFile(filePath, []byte(modifiedContent), 0o644)
-	if err != nil {
-		return fmt.Errorf("failed to write CSS file: %w", err)
-	}
-
-	return nil
-}
-
-func downloadAndProcessJS(jsURL, baseFolder, pageURL string) error {
-	resp, err := http.Get(jsURL)
-	if err != nil {
-		return fmt.Errorf("failed to download JS: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("received status code %d for JS", resp.StatusCode)
-	}
-
-	content, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read JS content: %w", err)
-	}
-
-	// Extract images and get modified content
-	images, modifiedContent, err := extractImagesFromJS(string(content), pageURL)
-	if err != nil {
-		return fmt.Errorf("failed to extract images from JS: %w", err)
-	}
-
-	// Download images
-	for _, imgPath := range images {
-		absoluteURL := resolveURL(jsURL, imgPath)
-		if absoluteURL != "" {
-			err := downloadFile(absoluteURL, baseFolder)
-			if err != nil {
-				fmt.Printf("Warning: Error downloading JS image %s: %v\n", absoluteURL, err)
-			}
-		}
-	}
-
-	// Save modified JS content
-	relativePath, err := getRelativePath(jsURL, baseFolder)
-	if err != nil {
-		return fmt.Errorf("failed to get relative path for JS: %w", err)
-	}
-
-	filePath := filepath.Join(baseFolder, relativePath)
-	err = os.MkdirAll(filepath.Dir(filePath), 0o755)
-	if err != nil {
-		return fmt.Errorf("failed to create JS directory: %w", err)
-	}
-
-	err = os.WriteFile(filePath, []byte(modifiedContent), 0o644)
-	if err != nil {
-		return fmt.Errorf("failed to write JS file: %w", err)
-	}
-
-	return nil
+	return base.Host == resource.Host
 }
